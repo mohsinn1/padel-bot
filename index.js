@@ -1,61 +1,70 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
-const fs = require('fs');
+const fs = require('fs'); 
 
-// --- CONFIGURATION ---
-const GROUP_NAME = "PEDAL TEST"; // MUST MATCH YOUR GROUP NAME EXACTLY
-
-// --- DATA HANDLING ---
-// Since we are on a virtual computer, we default to 0 every time we restart.
-// You can set the starting score manually here if you want:
-let scores = { "Laizi & Mochi": 5, "Chicken Banana": 1 };
+// CONFIGURATION
+const GROUP_NAME = "PEDAL TEST"; 
+const SCORES_FILE = "./scores.json";
 
 const client = new Client({
     authStrategy: new LocalAuth(),
-    puppeteer: {
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    }
+    puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
 });
 
-client.on('qr', (qr) => {
-    console.log('\n=== SCAN THIS QR CODE ===');
-    qrcode.generate(qr, { small: true });
-    console.log('=========================\n');
-});
+client.on('qr', (qr) => qrcode.generate(qr, { small: true }));
 
 client.on('ready', () => {
-    console.log('✅ Padel Bot is Online! Ready to update scores.');
+    console.log('✅ Bot is Online!');
+    // Load scores immediately to show we are ready
+    const current = JSON.parse(fs.readFileSync(SCORES_FILE));
+    console.log(`📊 Loaded Scores: Laizi & Mochi: ${current["Laizi & Mochi"]} | Chicken Banana: ${current["Chicken Banana"]}`);
 });
 
-client.on('message', async (msg) => {
-    if (msg.body.startsWith('!win')) {
-        const chat = await msg.getChat();
+client.on('message_create', async (msg) => {
+    const chat = await msg.getChat();
+    
+    // Filter: Must be the right group
+    if (!chat.isGroup || chat.name !== GROUP_NAME) return;
+
+    // Check Command
+    if (msg.body.toLowerCase().startsWith('won by')) {
         
-        // Security check
-        if (!chat.isGroup || chat.name !== GROUP_NAME) return;
+        // 1. Parse the winner
+        const parts = msg.body.split(/Won by /i); 
+        let winnerRaw = parts[1];
+        let winner = winnerRaw ? winnerRaw.trim() : "Unknown";
 
-        const winnerRaw = msg.body.split('!win ')[1];
-        const winner = winnerRaw ? winnerRaw.trim() : null;
+        // 2. Fix Name Variations
+        if (winner.toLowerCase() === 'laizi and mochi') winner = 'Laizi & Mochi';
+        if (winner.toLowerCase() === 'chicken banana') winner = 'Chicken Banana';
 
-        if (winner === 'Laizi And Mochi' || winner === 'Chicken Banana') {
-            // Update Score
+
+        // 3. Load CURRENT scores from file (in case they changed manually)
+        let scores = JSON.parse(fs.readFileSync(SCORES_FILE));
+
+        // 4. Update if team exists
+        if (scores[winner] !== undefined) {
             scores[winner]++;
             
-            // Create Description
-            const newDesc = `🎾 *Weekend Padel * 🎾\n\n` +
-                            `🏆 Current Standings:\n` +
-                            `Laizi And Mochi: ${scores["Team A"]}\n` +
-                            `Chicken Banana: ${scores["Team B"]}\n\n` +
-                            `Last Updated: ${new Date().toLocaleDateString()}`;
+            // SAVE to file immediately
+            fs.writeFileSync(SCORES_FILE, JSON.stringify(scores, null, 2));
 
+            // Generate Description
+            const newDesc = `🎾 *Weekend Padel* 🎾\n\n` +
+                            `🏆 Current Standings:\n` +
+                            `Laizi & Mochi: ${scores["Laizi & Mochi"]}\n` +
+                            `Chicken Banana: ${scores["Chicken Banana"]}\n\n` +
+                            `Last Updated: ${new Date().toLocaleDateString()}`;
+            
             try {
                 await chat.setDescription(newDesc);
-                await msg.reply(`✅ Score updated! ${winner} now has ${scores[winner]} wins.`);
+                await msg.reply(`✅ Recorded! ${winner} now has ${scores[winner]} wins.`);
+                console.log(`Updated score for ${winner}`);
             } catch (err) {
-                await msg.reply("❌ Error: Make sure I am an Admin!");
+                console.log("❌ Error: Bot needs Admin rights.");
             }
         } else {
-            await msg.reply("❌ Use: !win Team A OR !win Team B");
+             await msg.reply(`❌ Unknown Team.`);
         }
     }
 });
