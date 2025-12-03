@@ -14,7 +14,7 @@ const client = new Client({
         args: ['--no-sandbox', '--disable-setuid-sandbox']
     }
 });
-client.on('qr', (qr) => qrcode.generate(qr, { small: true }));
+client.on('qr', (qr) =>{console.clear(); qrcode.generate(qr, { small: true })});
 
 client.on('ready', () => {
     console.log('✅ Bot is Online!');
