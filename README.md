@@ -88,7 +88,7 @@ You can customize the bot's behavior by modifying the following constants in `in
 
 *   **`TARGET_GROUP_NAME`**: The exact name of the WhatsApp group the bot should monitor.
     ```javascript
-    const TARGET_GROUP_NAME = "PEDAL SHYT"; // Change this to your group's exact name
+    const TARGET_GROUP_NAME = "PEDAL TEST"; // Change this to your group's exact name
     ```
 *   **`SCORES_FILE`**: The path to the JSON file where scores are stored.
     ```javascript
